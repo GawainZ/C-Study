@@ -1,2 +1,2 @@
-# C-Study
-C语言学习记录
+# Noob C
+初学C语言
