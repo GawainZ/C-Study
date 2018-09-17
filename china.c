@@ -6,6 +6,7 @@ int main()
     {
         printf("%c", word[i] + 5);
     }
+    擦你就打算九九
     getchar();
     getchar();
 }
