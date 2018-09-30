@@ -5,8 +5,8 @@
 #include <unistd.h> //Sleep
 #include <windows.h>
 //地图大小 可以修改
-#define X 18
-#define Y 40
+#define X 20
+#define Y 50
 typedef struct _snake
 {
     int x, y;
@@ -17,34 +17,41 @@ typedef struct _list
 {
     Snake *head; //蛇头
     Snake *tail; //蛇尾
-    int fx, fy;
+    int sp; //蛇头的方向 初始为左
 } List;
 
-
-int map[X][Y]; //' '为地图 @代表蛇头 O为蛇身体 *代表食物 #代表边界
-
-int sp = 75; //蛇头的方向 初始为左
+typedef struct _map
+{
+    int fx, fy;//食物
+    int sx, sy;//蛇上次停留的位置
+} Map;
 
 int score; //分数
 
-void snake_build(List *list); //初始化蛇(包括食物)
+void snake_set(List *list); //初始化蛇(包括食物)
 
-void snake_move(List *list, int up); //up为移动方向
+void snake_move(List *list, Map *map,int up); //up为移动方向
 
-void snake_map(List *list); //初始化地图
+void map_set(void); //初始化地图
 
-void print_map(void); //打印整个地图
+void map_refresh(List *list,Map *map); //打印整个地图
 
-void food_build(List *list); //随机生成食物
+void food_set(List *list,Map *map); //随机生成食物
 
 int game_over(List *list); //自刎返回1 撞墙返回2
 
 int main()
 {
     List list;
+    list.sp = 75;   //蛇头方向
+    Map map;
+    map.sx = 0;
+    map.sy = 0;
     list.head = list.tail = NULL; //蛇头蛇尾链表
-    snake_build(&list);           //初始化蛇
-    snake_map(&list);             //将蛇复制进地图数组 并打印
+    snake_set(&list);           //初始化蛇
+    map_set();               //初始化地图
+    food_set(&list, &map);   //初始化食物
+    map_refresh(&list,&map);       //刷新蛇
     //用户操作
     int up;
     while (1)
@@ -55,25 +62,26 @@ int main()
             if (up == 72 || up == 80 || up == 75 || up == 77) //屏蔽除了上下左右以外的ascii码
             {
                 //不能走反方向
-                if ((sp == 75 && up != 77) || (sp == 72 && up != 80) || (sp == 80 && up != 72) || (sp == 77 && up != 75))
+                if ((list.sp == 75 && up != 77) || (list.sp == 72 && up != 80) || (list.sp == 80 && up != 72) || (list.sp == 77 && up != 75))
                 {
-                    snake_move(&list, up);
+                    snake_move(&list,&map, up);
                     if (game_over(&list))
                     {
                         break;
                     }
-                    snake_map(&list);
+                    map_refresh(&list,&map);
                 }
             }
         }
         else
         {
-            snake_move(&list, sp);
+            snake_move(&list, &map,list.sp);
             if (game_over(&list))
             {
                 break;
             }
-            snake_map(&list);
+
+            map_refresh(&list,&map);
         }
         Sleep(100); //数值越小 难度越高
     }
@@ -88,7 +96,7 @@ int main()
     getchar();
 }
 
-void snake_build(List *list) //初始化蛇
+void snake_set(List *list) //初始化蛇
 {
     int x = 10, y;
     for (y = 18; y < 22; y++)
@@ -108,10 +116,9 @@ void snake_build(List *list) //初始化蛇
             list->tail = p;
         }
     }
-    food_build(list);
 }
 
-void snake_move(List *list, int up)
+void snake_move(List *list, Map *map,int up)
 {
     Snake *p = (Snake *)malloc(sizeof(Snake));
     switch (up)
@@ -122,35 +129,35 @@ void snake_move(List *list, int up)
         p->y = list->head->y;
         p->next = list->head;
         list->head = p;
-        sp = 72; //改变方向
+        list->sp = 72; //改变方向
         break;
     case 80: //下移
         p->x = list->head->x + 1;
         p->y = list->head->y;
         p->next = list->head;
         list->head = p;
-        sp = 80;
+        list->sp = 80;
         break;
     case 75: //左移
         p->x = list->head->x;
         p->y = list->head->y - 1;
         p->next = list->head;
         list->head = p;
-        sp = 75;
+        list->sp = 75;
         break;
     case 77: //右移
         p->x = list->head->x;
         p->y = list->head->y + 1;
         p->next = list->head;
         list->head = p;
-        sp = 77;
+        list->sp = 77;
         break;
     }
     //判断是否吃到食物
-    if (list->head->x == list->fx && list->head->y == list->fy)
+    if (list->head->x == map->fx && list->head->y == map->fy)
     {
         score += 100; //吃到食物加分
-        food_build(list);
+        food_set(list,map);
     }
     else
     {
@@ -158,84 +165,95 @@ void snake_move(List *list, int up)
         for (p2 = list->head; p2->next != list->tail; p2 = p2->next)
             ; //遍历到尾部前一个
         //去掉尾巴
+        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), {(short)list->tail->y, (short)list->tail->x});
+        printf(" ");
+        map->sx=list->tail->x;
+        map->sy = list->tail->y;
         free(list->tail);
         list->tail = p2;
         p2->next = NULL;
     }
-
     //去尾(判断是否吃到食物 吃到不去尾)
 }
 
-void snake_map(List *list)
+void map_set(void)
 {
-    int i, j;
-    //生成边界#
-    for (i = 0; i < X; i++)
+    for (int x = 0; x < X; x++)
     {
-        for (j = 0; j < Y; j++)
+        for (int y = 0; y < Y; y++)
         {
-            if (i == 0 || j == 0 || i == X - 1 || j == Y - 1) //边界条件
+            if (y == 0 || x == 0 || x == X - 1 || y == Y - 1)
             {
-                map[i][j] = '#';
+                printf("#");
             }
             else
             {
-                map[i][j] = ' ';
+                printf(" ");
             }
-        }
-    }
-    //链表进数组
-    Snake *p = list->head;
-    map[p->x][p->y] = '@';
-    for (p = p->next; p; p = p->next)
-    {
-        map[p->x][p->y] = 'O';
-    }
-    //食物：
-    map[list->fx][list->fy] = '*';
-    print_map(); //初始完毕 打印
-}
-
-void print_map(void)
-{
-    system("cls"); //清除屏幕
-
-    int i, j;
-    for (i = 0; i < X; i++)
-    {
-        for (j = 0; j < Y; j++)
-        {
-            printf("%c", map[i][j]);
         }
         printf("\n");
     }
-    printf("------------ 你的分数：%-4d ------------", score);
 }
 
-void food_build(List *list)
+void map_refresh(List *list,Map *map)
+{
+    //把蛇和食物打印到地图中
+    //链表进数组
+    Snake *p = list->head;
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), {(short)p->y,(short)p->x});
+    printf("@");
+    // map[p->x][p->y] = '@';
+    for (p = p->next; p; p = p->next)
+    {
+        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), {(short)p->y, (short)p->x});
+        // map[p->x][p->y] = 'O';
+        printf("O");
+    }
+
+    // SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), {(short)list->tail->y, (short)list->tail->x});
+    // printf(" ");
+    //食物：
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), {(short)map->fy,(short)map->fx});
+    // map[map->fx][map->fy] = '*';
+    printf("*");
+    // system("cls"); //清除屏幕
+    // int i, j;
+    // for (i = 0; i < X; i++)
+    // {
+    //     for (j = 0; j < Y; j++)
+    //     {
+
+    //         printf("%c", map[i][j]);
+    //     }
+    //     printf("\n");
+    // }
+    // SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), {0, Y+1});
+    // printf("------------ 你的分数：%-4d ------------", score);
+}
+
+void food_set(List *list,Map *map)
 {
     srand((int)time(NULL));
-    list->fx = (rand() % 16) + 1;
-    list->fy = (rand() % 38) + 1;
+    map->fx = (rand() % 16) + 1;
+    map->fy = (rand() % 38) + 1;
 }
 
 int game_over(List *list)
 {
-    int over = 0;
     //判断是否自刎
     Snake *p;
     for (p = list->head->next; p; p = p->next)
     {
         if (list->head->x == p->x && list->head->y == p->y)
         {
-            over = 1; //吃到自己
+            return 1; //吃到自己
         }
     }
     //判断是否撞墙
     p = list->head;
     if (p->x == 0 || p->y == 0 || p->x == X - 1 || p->y == Y - 1) //边界条件
     {
-        over = 2; //撞到墙壁
+        return 2;
     }
-    return over;
+    return 0;
 }
