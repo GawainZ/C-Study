@@ -17,41 +17,33 @@ typedef struct _list
 {
     Snake *head; //蛇头
     Snake *tail; //蛇尾
-    int sp; //蛇头的方向 初始为左
+    int fx, fy;  //食物
+    int sp;      //蛇头的方向 初始为左
 } List;
-
-typedef struct _map
-{
-    int fx, fy;//食物
-    int sx, sy;//蛇上次停留的位置
-} Map;
 
 int score; //分数
 
 void snake_set(List *list); //初始化蛇(包括食物)
 
-void snake_move(List *list, Map *map,int up); //up为移动方向
+void snake_move(List *list, int up); //up为移动方向
 
 void map_set(void); //初始化地图
 
-void map_refresh(List *list,Map *map); //打印整个地图
+void map_refresh(List *list); //打印整个地图
 
-void food_set(List *list,Map *map); //随机生成食物
+void food_set(List *list); //随机生成食物
 
 int game_over(List *list); //自刎返回1 撞墙返回2
 
 int main()
 {
     List list;
-    list.sp = 75;   //蛇头方向
-    Map map;
-    map.sx = 0;
-    map.sy = 0;
+    list.sp = 75;                 //蛇头方向
     list.head = list.tail = NULL; //蛇头蛇尾链表
-    snake_set(&list);           //初始化蛇
-    map_set();               //初始化地图
-    food_set(&list, &map);   //初始化食物
-    map_refresh(&list,&map);       //刷新蛇
+    snake_set(&list);             //初始化蛇
+    map_set();                    //初始化地图
+    food_set(&list);              //初始化食物
+    map_refresh(&list);           //刷新蛇
     //用户操作
     int up;
     while (1)
@@ -64,24 +56,23 @@ int main()
                 //不能走反方向
                 if ((list.sp == 75 && up != 77) || (list.sp == 72 && up != 80) || (list.sp == 80 && up != 72) || (list.sp == 77 && up != 75))
                 {
-                    snake_move(&list,&map, up);
+                    snake_move(&list, up);
                     if (game_over(&list))
                     {
                         break;
                     }
-                    map_refresh(&list,&map);
+                    map_refresh(&list);
                 }
             }
         }
         else
         {
-            snake_move(&list, &map,list.sp);
+            snake_move(&list, list.sp);
             if (game_over(&list))
             {
                 break;
             }
-
-            map_refresh(&list,&map);
+            map_refresh(&list);
         }
         Sleep(100); //数值越小 难度越高
     }
@@ -118,7 +109,7 @@ void snake_set(List *list) //初始化蛇
     }
 }
 
-void snake_move(List *list, Map *map,int up)
+void snake_move(List *list, int up)
 {
     Snake *p = (Snake *)malloc(sizeof(Snake));
     switch (up)
@@ -154,10 +145,10 @@ void snake_move(List *list, Map *map,int up)
         break;
     }
     //判断是否吃到食物
-    if (list->head->x == map->fx && list->head->y == map->fy)
+    if (list->head->x == list->fx && list->head->y == list->fy)
     {
         score += 100; //吃到食物加分
-        food_set(list,map);
+        food_set(list);
     }
     else
     {
@@ -167,8 +158,6 @@ void snake_move(List *list, Map *map,int up)
         //去掉尾巴
         SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), {(short)list->tail->y, (short)list->tail->x});
         printf(" ");
-        map->sx=list->tail->x;
-        map->sy = list->tail->y;
         free(list->tail);
         list->tail = p2;
         p2->next = NULL;
@@ -195,12 +184,12 @@ void map_set(void)
     }
 }
 
-void map_refresh(List *list,Map *map)
+void map_refresh(List *list)
 {
     //把蛇和食物打印到地图中
     //链表进数组
     Snake *p = list->head;
-    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), {(short)p->y,(short)p->x});
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), {(short)p->y, (short)p->x});
     printf("@");
     // map[p->x][p->y] = '@';
     for (p = p->next; p; p = p->next)
@@ -213,8 +202,8 @@ void map_refresh(List *list,Map *map)
     // SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), {(short)list->tail->y, (short)list->tail->x});
     // printf(" ");
     //食物：
-    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), {(short)map->fy,(short)map->fx});
-    // map[map->fx][map->fy] = '*';
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), {(short)list->fy, (short)list->fx});
+    // map[list->f][list->f] = '*';
     printf("*");
     // system("cls"); //清除屏幕
     // int i, j;
@@ -231,11 +220,11 @@ void map_refresh(List *list,Map *map)
     // printf("------------ 你的分数：%-4d ------------", score);
 }
 
-void food_set(List *list,Map *map)
+void food_set(List *list)
 {
     srand((int)time(NULL));
-    map->fx = (rand() % 16) + 1;
-    map->fy = (rand() % 38) + 1;
+    list->fx = (rand() % 16) + 1;
+    list->fy = (rand() % 38) + 1;
 }
 
 int game_over(List *list)
