@@ -17,8 +17,9 @@ typedef struct _list
 {
     Snake *head; //蛇头
     Snake *tail; //蛇尾
-    Snake *food; //食物
+    int fx, fy;
 } List;
+
 
 int map[X][Y]; //' '为地图 @代表蛇头 O为蛇身体 *代表食物 #代表边界
 
@@ -146,7 +147,7 @@ void snake_move(List *list, int up)
         break;
     }
     //判断是否吃到食物
-    if (list->head->x == list->food->x && list->head->y == list->food->y)
+    if (list->head->x == list->fx && list->head->y == list->fy)
     {
         score += 100; //吃到食物加分
         food_build(list);
@@ -191,8 +192,7 @@ void snake_map(List *list)
         map[p->x][p->y] = 'O';
     }
     //食物：
-    p = list->food;
-    map[p->x][p->y] = '*';
+    map[list->fx][list->fy] = '*';
     print_map(); //初始完毕 打印
 }
 
@@ -215,8 +215,8 @@ void print_map(void)
 void food_build(List *list)
 {
     srand((int)time(NULL));
-    list->food->x = (rand() % 16) + 1;
-    list->food->y = (rand() % 38) + 1;
+    list->fx = (rand() % 16) + 1;
+    list->fy = (rand() % 38) + 1;
 }
 
 int game_over(List *list)
